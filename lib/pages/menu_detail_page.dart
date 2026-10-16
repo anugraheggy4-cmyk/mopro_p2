@@ -111,7 +111,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 
     if (isDesktopOrWeb) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(item.name),
           backgroundColor: primaryColor,
@@ -217,7 +217,7 @@ class _MenuDetailPageState extends State<MenuDetailPage> {
 
     // Tampilan Mobile
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(

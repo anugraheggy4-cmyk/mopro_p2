@@ -64,6 +64,17 @@ class LocalDbService {
     await _prefs!.setString(_keyOrders, jsonEncode(list));
   }
 
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    await init();
+    final orders = await getOrders();
+    final index = orders.indexWhere((o) => o.orderId == orderId);
+    if (index != -1) {
+      orders[index] = orders[index].copyWith(status: newStatus);
+      final list = orders.map((o) => o.toJson()).toList();
+      await _prefs!.setString(_keyOrders, jsonEncode(list));
+    }
+  }
+
   // --- USER PROFILE ---
   Future<UserProfile> getUserProfile() async {
     await init();

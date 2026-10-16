@@ -506,7 +506,7 @@ class _OrderPageState extends State<OrderPage> {
     final isDesktopOrWeb = screenWidth >= 850;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: primaryColor,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/menu_item.dart';
 import '../services/local_db_service.dart';
+import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -102,16 +103,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: phoneController,
-                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      labelText: 'Nomor WhatsApp / HP',
+                      labelText: 'Nomor WhatsApp',
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'Email Kampus',
                       prefixIcon: Icon(Icons.email_outlined),
@@ -123,11 +122,17 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              if (formKey.currentState?.validate() == true) {
+              if (formKey.currentState!.validate()) {
                 final updated = UserProfile(
                   name: nameController.text.trim(),
                   nim: nimController.text.trim(),
@@ -136,68 +141,84 @@ class _ProfilePageState extends State<ProfilePage> {
                   email: emailController.text.trim(),
                 );
                 await LocalDbService.instance.saveUserProfile(updated);
+                setState(() => userProfile = updated);
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
-                await _loadProfileData();
-                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: Colors.green,
-                    content: Text('Profil berhasil diperbarui dan tersimpan di database lokal!'),
-                  ),
+                  const SnackBar(content: Text('Profil berhasil diperbarui di database lokal!')),
                 );
               }
             },
-            child: const Text('Simpan Profil'),
+            child: const Text('Simpan Perubahan'),
           ),
         ],
       ),
     );
   }
 
+  // DIALOG TOP UP SALDO
   void _showTopUpDialog() {
-    final nominals = [10000, 20000, 50000, 100000];
+    int selectedAmount = 20000;
+    final amounts = [10000, 20000, 50000, 100000];
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.account_balance_wallet, color: Colors.deepOrange),
-            SizedBox(width: 8),
-            Text('Isi Saldo Labkom Pay'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Pilih nominal isi ulang yang akan disimpan ke database lokal laptop:'),
-            const SizedBox(height: 12),
-            ...nominals.map((nom) {
-              return ListTile(
-                dense: true,
-                title: Text(formatRupiah(nom), style: const TextStyle(fontWeight: FontWeight.bold)),
-                trailing: const Icon(Icons.add_circle_outline, color: Colors.deepOrange),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final newBalance = walletBalance + nom;
-                  await LocalDbService.instance.updateWalletBalance(newBalance);
-                  await _loadProfileData();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: Colors.green,
-                      content: Text('Berhasil top up ${formatRupiah(nom)}! Saldo baru: ${formatRupiah(newBalance)}'),
-                    ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.account_balance_wallet, color: Colors.deepOrange),
+              SizedBox(width: 8),
+              Text('Top Up Saldo Kantin Pay', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Pilih nominal top up yang ingin ditambahkan ke database:'),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: amounts.map((amt) {
+                  final isSelected = selectedAmount == amt;
+                  return ChoiceChip(
+                    label: Text(formatRupiah(amt)),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      if (val) setDialogState(() => selectedAmount = amt);
+                    },
                   );
-                },
-              );
-            }),
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final newBal = walletBalance + selectedAmount;
+                await LocalDbService.instance.updateWalletBalance(newBal);
+                setState(() => walletBalance = newBal);
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Saldo berhasil ditambah ${formatRupiah(selectedAmount)}!')),
+                );
+              },
+              child: const Text('Top Up Sekarang'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-        ],
       ),
     );
   }
@@ -206,14 +227,15 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
-            child: const Text('Profil & Informasi Kantin', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Profil & Pengaturan', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ),
         backgroundColor: primaryColor,
@@ -228,8 +250,8 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 // 1. Profil Pengguna Card dengan Tombol Edit
                 Card(
-                  elevation: 0.8,
-                  color: Colors.white,
+                  elevation: 1,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(18),
@@ -239,8 +261,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           children: [
                             CircleAvatar(
                               radius: 36,
-                              backgroundColor: Colors.deepOrange.shade100,
-                              child: const Icon(Icons.person, size: 42, color: Colors.deepOrange),
+                              backgroundColor: primaryColor.withValues(alpha: 0.15),
+                              child: Icon(Icons.person, size: 42, color: primaryColor),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -252,7 +274,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                       Expanded(
                                         child: Text(
                                           userProfile.name,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: isDark ? Colors.white : Colors.black87,
+                                          ),
                                         ),
                                       ),
                                       OutlinedButton.icon(
@@ -271,7 +297,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   const SizedBox(height: 2),
                                   Text(
                                     'NIM: ${userProfile.nim} • ${userProfile.major}',
-                                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700], fontSize: 13),
                                   ),
                                   const SizedBox(height: 6),
                                   Row(
@@ -279,18 +305,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: Colors.amber.shade100,
+                                          color: Colors.amber.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: const Text(
                                           '⭐ Pelanggan Setia Bu Sari',
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.brown),
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
                                         '$orderCount Transaksi',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                                       ),
                                     ],
                                   ),
@@ -299,7 +325,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ],
                         ),
-                        const Divider(height: 24),
+                        Divider(height: 24, color: isDark ? Colors.grey[800] : Colors.grey[200]),
                         Row(
                           children: [
                             Expanded(
@@ -307,7 +333,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 children: [
                                   const Icon(Icons.phone_android, size: 16, color: Colors.grey),
                                   const SizedBox(width: 6),
-                                  Text(userProfile.phone, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                                  Text(userProfile.phone, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[700])),
                                 ],
                               ),
                             ),
@@ -316,7 +342,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 children: [
                                   const Icon(Icons.email_outlined, size: 16, color: Colors.grey),
                                   const SizedBox(width: 6),
-                                  Text(userProfile.email, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                                  Text(userProfile.email, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[700])),
                                 ],
                               ),
                             ),
@@ -330,8 +356,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 // 2. Saldo Kantin Pay Card (Database Lokal)
                 Card(
-                  elevation: 0.8,
-                  color: Colors.deepOrange,
+                  elevation: 1,
+                  color: primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(18),
@@ -365,7 +391,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            foregroundColor: Colors.deepOrange,
+                            foregroundColor: primaryColor,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -379,46 +405,125 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 16),
 
-                // 3. Info Kantin Bu Sari
+                // 3. Pengaturan TEMA & DARK MODE (Fitur Keren Baru!)
                 Card(
-                  elevation: 0.8,
-                  color: Colors.white,
+                  elevation: 1,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.storefront, color: Colors.deepOrange),
-                            SizedBox(width: 8),
+                            Icon(Icons.palette_outlined, color: primaryColor),
+                            const SizedBox(width: 8),
                             Text(
-                              'Informasi Gerai Kantin Bu Sari',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              'Personalisasi Tema & Mode Tampilan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
                             ),
                           ],
                         ),
-                        const Divider(height: 20),
-                        _buildInfoItem(
-                          Icons.schedule,
-                          'Jam Operasional',
-                          'Senin - Sabtu: 07.30 - 16.30 WIB (Hari Libur Tutup)',
+                        Divider(height: 24, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+
+                        // Switch Dark Mode
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          activeTrackColor: primaryColor,
+                          secondary: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.amber.withValues(alpha: 0.2) : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              isDark ? Icons.dark_mode : Icons.light_mode,
+                              color: isDark ? Colors.amber : Colors.grey[700],
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text('Mode Gelap (Dark Mode)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                            isDark
+                                ? 'Tampilan gelap aktif (nyaman di mata & hemat baterai)'
+                                : 'Tampilan terang aktif',
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                          ),
+                          value: isDark,
+                          onChanged: (val) {
+                            ThemeService.instance.toggleDarkMode(val);
+                            setState(() {});
+                          },
                         ),
-                        _buildInfoItem(
-                          Icons.location_on_outlined,
-                          'Lokasi Gerai Kampus',
-                          'Lantai 1 Gedung Maroon Labkom (Samping Tangga Utama)',
+
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Pilih Warna Aksen Aplikasi:',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                         ),
-                        _buildInfoItem(
-                          Icons.phone_outlined,
-                          'WhatsApp Kasir Bu Sari',
-                          '+62 812-3456-7890 (Bu Sari)',
-                        ),
-                        _buildInfoItem(
-                          Icons.verified_outlined,
-                          'Jaminan Kualitas Makanan',
-                          '100% Halal, Bahan Segar Setiap Hari, Tanpa Pengawet',
+                        const SizedBox(height: 10),
+
+                        // Pilihan Warna Aksen Palet
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: List.generate(ThemeService.availableColors.length, (idx) {
+                            final option = ThemeService.availableColors[idx];
+                            final isSelected = ThemeService.instance.selectedColorIndex == idx;
+
+                            return InkWell(
+                              onTap: () {
+                                ThemeService.instance.setColorIndex(idx);
+                                setState(() {});
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? option.primaryColor.withValues(alpha: isDark ? 0.3 : 0.15)
+                                      : (isDark ? Colors.grey[900] : Colors.grey[100]),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected ? option.primaryColor : Colors.transparent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: option.primaryColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(Icons.check, size: 10, color: Colors.white)
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      option.name,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected
+                                            ? option.primaryColor
+                                            : (isDark ? Colors.grey[300] : Colors.black87),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
                         ),
                       ],
                     ),
@@ -426,10 +531,65 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 16),
 
-                // 4. Pengaturan & Preferensi
+                // 4. Info Kantin Bu Sari
                 Card(
-                  elevation: 0.8,
-                  color: Colors.white,
+                  elevation: 1,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.storefront, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Informasi Gerai Kantin Bu Sari',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Divider(height: 20, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+                        _buildInfoItem(
+                          Icons.schedule,
+                          'Jam Operasional',
+                          'Senin - Sabtu: 07.30 - 16.30 WIB (Hari Libur Tutup)',
+                          isDark,
+                        ),
+                        _buildInfoItem(
+                          Icons.location_on_outlined,
+                          'Lokasi Gerai Kampus',
+                          'Lantai 1 Gedung Maroon Labkom (Samping Tangga Utama)',
+                          isDark,
+                        ),
+                        _buildInfoItem(
+                          Icons.phone_outlined,
+                          'WhatsApp Kasir Bu Sari',
+                          '+62 812-3456-7890 (Bu Sari)',
+                          isDark,
+                        ),
+                        _buildInfoItem(
+                          Icons.verified_outlined,
+                          'Jaminan Kualitas Makanan',
+                          '100% Halal, Bahan Segar Setiap Hari, Tanpa Pengawet',
+                          isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 5. Preferensi & Reset
+                Card(
+                  elevation: 1,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Column(
                     children: [
@@ -437,11 +597,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         activeTrackColor: primaryColor,
                         secondary: const Icon(Icons.notifications_active_outlined),
                         title: const Text('Notifikasi Status Pesanan', style: TextStyle(fontSize: 14)),
-                        subtitle: const Text('Dapatkan pemberitahuan saat masakan Bu Sari sudah siap', style: TextStyle(fontSize: 12)),
+                        subtitle: Text(
+                          'Dapatkan pemberitahuan saat masakan Bu Sari sudah siap',
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        ),
                         value: pushNotifications,
                         onChanged: (val) => setState(() => pushNotifications = val),
                       ),
-                      const Divider(height: 1),
+                      Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
                       SwitchListTile(
                         activeTrackColor: primaryColor,
                         secondary: const Icon(Icons.receipt_long_outlined),
@@ -449,11 +612,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         value: saveReceiptAutomatically,
                         onChanged: (val) => setState(() => saveReceiptAutomatically = val),
                       ),
-                      const Divider(height: 1),
+                      Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[200]),
                       ListTile(
                         leading: const Icon(Icons.refresh, color: Colors.blue),
                         title: const Text('Reset Data Database Lokal', style: TextStyle(fontSize: 14)),
-                        subtitle: const Text('Kembalikan data profil, pesanan, dan saldo ke default', style: TextStyle(fontSize: 12)),
+                        subtitle: Text(
+                          'Kembalikan data profil, pesanan, dan saldo ke default',
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        ),
                         onTap: () async {
                           await LocalDbService.instance.resetDatabase();
                           await _loadProfileData();
@@ -469,11 +635,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 24),
 
                 Text(
-                  'Aplikasi Kantin Bu Sari v1.0.0 (Web & Mobile Responsive)',
+                  'Aplikasi Kantin Bu Sari v2.0.0 (Web & Mobile Responsive)',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
                 Text(
-                  'Tugas Praktikum Maroon Labkom',
+                  'Fitur Baru: Live Order Tracker • E-Receipt QR • Dark Mode • Smart Sorting',
                   style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
                 const SizedBox(height: 24),
@@ -485,21 +651,28 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String title, String subtitle) {
+  Widget _buildInfoItem(IconData icon, String title, String subtitle, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey[700]),
+          Icon(icon, size: 20, color: isDark ? Colors.grey[400] : Colors.grey[700]),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(subtitle, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),

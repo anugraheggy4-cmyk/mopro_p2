@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/local_db_service.dart';
+import '../services/theme_service.dart';
 import '../utils/formatters.dart';
 import 'history_page.dart';
 import 'menu_list_page.dart';
@@ -53,23 +54,25 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktopOrWeb = screenWidth >= 800;
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
     final cartCount = CartService.instance.totalCount;
 
     if (isDesktopOrWeb) {
       // TAMPILAN WEB / LAPTOP PROFESIONAL
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Column(
           children: [
             // Top Web Navbar Header
             Container(
               height: 68,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -110,8 +113,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                                   ),
                                 ),
                                 Text(
-                                  'Maroon Labkom Canteen Web',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  'Maroon Labkom Canteen App',
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                                 ),
                               ],
                             ),
@@ -130,14 +133,27 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                               const SizedBox(width: 6),
                               _buildWebTab(1, 'Keranjang Pesanan', Icons.shopping_cart_outlined, badgeCount: cartCount),
                               const SizedBox(width: 6),
-                              _buildWebTab(2, 'Riwayat Transaksi', Icons.receipt_long_outlined),
+                              _buildWebTab(2, 'Riwayat & Live Tracker', Icons.receipt_long_outlined),
                               const SizedBox(width: 6),
-                              _buildWebTab(3, 'Profil & Info', Icons.person_outline),
+                              _buildWebTab(3, 'Profil & Tema', Icons.person_outline),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
+
+                      // Dark Mode Quick Toggle Button
+                      IconButton(
+                        tooltip: isDark ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap',
+                        icon: Icon(
+                          isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                          color: isDark ? Colors.amber : Colors.grey[700],
+                        ),
+                        onPressed: () {
+                          ThemeService.instance.toggleDarkMode(!isDark);
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
                       // Saldo Labkom Pay Pill
                       InkWell(
@@ -146,20 +162,20 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                           decoration: BoxDecoration(
-                            color: Colors.deepOrange.shade50,
+                            color: primaryColor.withValues(alpha: isDark ? 0.2 : 0.08),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.deepOrange.shade200),
+                            border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.account_balance_wallet, size: 16, color: Colors.deepOrange),
+                              Icon(Icons.account_balance_wallet, size: 16, color: primaryColor),
                               const SizedBox(width: 6),
                               Text(
                                 formatRupiah(_walletBalance),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: Colors.deepOrange,
+                                  color: primaryColor,
                                 ),
                               ),
                             ],
@@ -174,8 +190,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                         borderRadius: BorderRadius.circular(20),
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundColor: Colors.deepOrange.shade100,
-                          child: const Icon(Icons.person, color: Colors.deepOrange, size: 20),
+                          backgroundColor: primaryColor.withValues(alpha: 0.15),
+                          child: Icon(Icons.person, color: primaryColor, size: 20),
                         ),
                       ),
                     ],
@@ -209,36 +225,36 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             _currentIndex = index;
           });
         },
-        indicatorColor: Colors.deepOrange.shade100,
+        indicatorColor: primaryColor.withValues(alpha: 0.15),
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.restaurant_menu_outlined),
-            selectedIcon: Icon(Icons.restaurant_menu, color: Colors.deepOrange),
+          NavigationDestination(
+            icon: const Icon(Icons.restaurant_menu_outlined),
+            selectedIcon: Icon(Icons.restaurant_menu, color: primaryColor),
             label: 'Menu',
           ),
           NavigationDestination(
             icon: Badge(
               isLabelVisible: cartCount > 0,
               label: Text('$cartCount'),
-              backgroundColor: Colors.deepOrange,
+              backgroundColor: primaryColor,
               child: const Icon(Icons.shopping_cart_outlined),
             ),
             selectedIcon: Badge(
               isLabelVisible: cartCount > 0,
               label: Text('$cartCount'),
-              backgroundColor: Colors.deepOrange,
-              child: const Icon(Icons.shopping_cart, color: Colors.deepOrange),
+              backgroundColor: primaryColor,
+              child: Icon(Icons.shopping_cart, color: primaryColor),
             ),
             label: 'Keranjang',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long, color: Colors.deepOrange),
+          NavigationDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long, color: primaryColor),
             label: 'Riwayat',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Colors.deepOrange),
+          NavigationDestination(
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: primaryColor),
             label: 'Profil',
           ),
         ],
@@ -248,7 +264,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
   Widget _buildWebTab(int index, String label, IconData icon, {int badgeCount = 0}) {
     final isSelected = _currentIndex == index;
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: () => setState(() => _currentIndex = index),
@@ -256,7 +274,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -268,7 +286,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
               child: Icon(
                 icon,
                 size: 18,
-                color: isSelected ? primaryColor : Colors.grey[700],
+                color: isSelected ? primaryColor : (isDark ? Colors.grey[400] : Colors.grey[700]),
               ),
             ),
             const SizedBox(width: 8),
@@ -277,7 +295,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
               style: TextStyle(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 fontSize: 13,
-                color: isSelected ? primaryColor : Colors.grey[800],
+                color: isSelected ? primaryColor : (isDark ? Colors.grey[300] : Colors.grey[800]),
               ),
             ),
           ],

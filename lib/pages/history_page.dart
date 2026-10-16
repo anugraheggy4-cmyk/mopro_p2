@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/menu_item.dart';
 import '../services/local_db_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/live_order_tracker_dialog.dart';
+import '../widgets/order_receipt_dialog.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -12,7 +14,7 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   String selectedFilter = 'Semua';
-  final List<String> filterTabs = ['Semua', 'Selesai', 'Sedang Dimasak'];
+  final List<String> filterTabs = ['Semua', 'Sedang Diproses', 'Selesai'];
   List<OrderHistory> orders = [];
   bool isLoading = true;
 
@@ -35,209 +37,25 @@ class _HistoryPageState extends State<HistoryPage> {
 
   List<OrderHistory> get filteredOrders {
     if (selectedFilter == 'Semua') return orders;
-    return orders.where((o) => o.status.toLowerCase() == selectedFilter.toLowerCase()).toList();
+    if (selectedFilter == 'Sedang Diproses') {
+      return orders.where((o) => o.status.toLowerCase() != 'selesai').toList();
+    }
+    return orders.where((o) => o.status.toLowerCase() == 'selesai').toList();
   }
 
-  // DIALOG RINCIAN TRANSAKSI DETAIL
-  void _showOrderDetailDialog(OrderHistory order) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.deepOrange.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.receipt_long, color: Colors.deepOrange, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Detail Order #${order.orderId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(_formatDate(order.orderDate), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-
-                // Status Badge & Info Meja
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Status Pesanan', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          const SizedBox(height: 2),
-                          Text(
-                            order.status,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: order.status.contains('Dimasak') ? Colors.deepOrange : Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text('Lokasi / Tempat', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          const SizedBox(height: 2),
-                          Text(order.tableNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Metode Pembayaran
-                Row(
-                  children: [
-                    const Icon(Icons.payment, size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    const Text('Metode Pembayaran:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const Spacer(),
-                    Text(order.paymentMethod, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-                const Divider(height: 20),
-
-                // Daftar Item Lengkap
-                const Text('Menu yang Dipesan:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 8),
-
-                if (order.detailedItems.isNotEmpty)
-                  ...order.detailedItems.map((item) {
-                    final qty = item['quantity'] ?? 1;
-                    final name = item['name'] ?? '';
-                    final price = item['price'] ?? 0;
-                    final spice = item['spice'] ?? '';
-                    final toppings = item['toppings'] ?? '';
-                    final notes = item['notes'] ?? '';
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${qty}x $name', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                if (spice.toString().isNotEmpty)
-                                  Text('• Varian: $spice', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
-                                if (toppings.toString().isNotEmpty)
-                                  Text('• Topping: $toppings', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
-                                if (notes.toString().isNotEmpty)
-                                  Text('• Catatan: "$notes"', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black54)),
-                              ],
-                            ),
-                          ),
-                          Text(formatRupiah(price is int ? price : (price as num).toInt()), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    );
-                  })
-                else
-                  ...order.itemNames.map((name) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text('• $name', style: const TextStyle(fontSize: 13)),
-                    );
-                  }),
-
-                const Divider(height: 20),
-
-                // Rincian Biaya
-                if (order.subtotal > 0)
-                  _buildCostRow('Subtotal', formatRupiah(order.subtotal)),
-                _buildCostRow('Biaya Layanan Kantin', formatRupiah(order.serviceFee)),
-                if (order.discountAmount > 0)
-                  _buildCostRow('Diskon Voucher', '- ${formatRupiah(order.discountAmount)}', color: Colors.green),
-                const Divider(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Total Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text(
-                      formatRupiah(order.totalAmount),
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(foregroundColor: primaryColor),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Struk digital berhasil dicetak/diunduh!')),
-              );
-            },
-            icon: const Icon(Icons.print, size: 16),
-            label: const Text('Cetak Struk'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
+  void _openLiveTracker(OrderHistory order) {
+    LiveOrderTrackerDialog.show(
+      context,
+      order,
+      onStatusChanged: _loadOrders,
     );
   }
 
-  Widget _buildCostRow(String title, String amount, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-          Text(amount, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color ?? Colors.black87)),
-        ],
-      ),
+  void _openReceipt(OrderHistory order) {
+    OrderReceiptDialog.show(
+      context,
+      order,
+      onOpenTracker: () => _openLiveTracker(order),
     );
   }
 
@@ -245,16 +63,19 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
             child: Row(
               children: [
-                const Expanded(child: Text('Riwayat Transaksi (Database Lokal)', style: TextStyle(fontWeight: FontWeight.bold))),
+                const Expanded(
+                  child: Text('Riwayat & Live Tracking', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Segarkan Riwayat',
@@ -272,9 +93,9 @@ class _HistoryPageState extends State<HistoryPage> {
           constraints: const BoxConstraints(maxWidth: 850),
           child: Column(
             children: [
-              // 1. Filter Chips
+              // 1. Filter Chips Bar
               Container(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: filterTabs.map((tab) {
@@ -284,9 +105,9 @@ class _HistoryPageState extends State<HistoryPage> {
                       child: FilterChip(
                         label: Text(tab),
                         selected: isSelected,
-                        selectedColor: primaryColor.withValues(alpha: 0.15),
+                        selectedColor: primaryColor.withValues(alpha: isDark ? 0.3 : 0.15),
                         labelStyle: TextStyle(
-                          color: isSelected ? primaryColor : Colors.black87,
+                          color: isSelected ? primaryColor : (isDark ? Colors.grey[300] : Colors.black87),
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           fontSize: 12,
                         ),
@@ -298,22 +119,22 @@ class _HistoryPageState extends State<HistoryPage> {
                   }).toList(),
                 ),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[300]),
 
               // 2. Daftar Transaksi
               Expanded(
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.deepOrange))
+                    ? Center(child: CircularProgressIndicator(color: primaryColor))
                     : filteredOrders.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[400]),
+                                Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[500]),
                                 const SizedBox(height: 12),
                                 Text(
                                   'Belum ada riwayat pesanan',
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 15),
                                 ),
                               ],
                             ),
@@ -326,106 +147,148 @@ class _HistoryPageState extends State<HistoryPage> {
                               itemCount: filteredOrders.length,
                               itemBuilder: (context, index) {
                                 final order = filteredOrders[index];
-                                final isCooked = order.status.contains('Dimasak');
+                                final isFinished = order.status.toLowerCase() == 'selesai';
 
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 14),
-                                  elevation: 0.8,
-                                  color: Colors.white,
+                                  elevation: 1,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(14),
-                                    onTap: () => _showOrderDetailDialog(order),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          // Header
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.receipt, size: 18, color: Colors.deepOrange),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    '#${order.orderId}',
-                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                                  ),
-                                                ],
-                                              ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: isCooked ? Colors.orange.shade50 : Colors.green.shade50,
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  border: Border.all(color: isCooked ? Colors.orange.shade300 : Colors.green.shade300),
-                                                ),
-                                                child: Text(
-                                                  order.status,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Header Kartu
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(Icons.receipt, size: 18, color: primaryColor),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  '#${order.orderId}',
                                                   style: TextStyle(
-                                                    color: isCooked ? Colors.deepOrange : Colors.green,
-                                                    fontSize: 11,
                                                     fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                    color: isDark ? Colors.white : Colors.black87,
                                                   ),
                                                 ),
+                                              ],
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: isFinished
+                                                    ? Colors.green.withValues(alpha: 0.12)
+                                                    : primaryColor.withValues(alpha: 0.12),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: isFinished ? Colors.green.shade400 : primaryColor.withValues(alpha: 0.4),
+                                                ),
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            '${order.tableNumber} • ${_formatDate(order.orderDate)} • ${order.paymentMethod}',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                          ),
-                                          const Divider(height: 20),
-
-                                          // List Item Ringkas
-                                          ...order.itemNames.map((item) {
-                                            return Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 2),
                                               child: Row(
+                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  const Icon(Icons.circle, size: 6, color: Colors.deepOrange),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(child: Text(item, style: const TextStyle(fontSize: 13))),
-                                                ],
-                                              ),
-                                            );
-                                          }),
-                                          const Divider(height: 20),
-
-                                          // Total & Tombol Aksi
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text('Total Bayar', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                                                  if (!isFinished) ...[
+                                                    Icon(Icons.soup_kitchen, size: 12, color: primaryColor),
+                                                    const SizedBox(width: 4),
+                                                  ],
                                                   Text(
-                                                    formatRupiah(order.totalAmount),
+                                                    order.status,
                                                     style: TextStyle(
+                                                      color: isFinished ? Colors.green : primaryColor,
+                                                      fontSize: 11,
                                                       fontWeight: FontWeight.bold,
-                                                      fontSize: 16,
-                                                      color: primaryColor,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              Row(
-                                                children: [
-                                                  TextButton.icon(
-                                                    onPressed: () => _showOrderDetailDialog(order),
-                                                    icon: const Icon(Icons.info_outline, size: 16),
-                                                    label: const Text('Detail Struk', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '${order.isTakeaway ? "Bungkus (Takeaway)" : order.tableNumber} • ${_formatDate(order.orderDate)} • ${order.paymentMethod}',
+                                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                        ),
+                                        Divider(height: 20, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+
+                                        // List Item Ringkas
+                                        ...order.itemNames.map((item) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 2),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.circle, size: 6, color: primaryColor),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    item,
+                                                    style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[200] : Colors.black87),
                                                   ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        Divider(height: 20, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+
+                                        // Total & Tombol Aksi
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text('Total Bayar', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                                                Text(
+                                                  formatRupiah(order.totalAmount),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: primaryColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Wrap(
+                                              spacing: 8,
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  style: OutlinedButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                    visualDensity: VisualDensity.compact,
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                  ),
+                                                  onPressed: () => _openReceipt(order),
+                                                  icon: const Icon(Icons.receipt_long, size: 14),
+                                                  label: const Text('E-Receipt & QR', style: TextStyle(fontSize: 11)),
+                                                ),
+                                                ElevatedButton.icon(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: isFinished ? Colors.grey[800] : primaryColor,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                    visualDensity: VisualDensity.compact,
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                  ),
+                                                  onPressed: () => _openLiveTracker(order),
+                                                  icon: Icon(
+                                                    isFinished ? Icons.history : Icons.radar,
+                                                    size: 14,
+                                                  ),
+                                                  label: Text(
+                                                    isFinished ? 'Lihat Timeline' : 'Lacak Live 🚀',
+                                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 );

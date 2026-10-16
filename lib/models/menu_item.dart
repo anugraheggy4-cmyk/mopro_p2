@@ -135,6 +135,36 @@ class OrderHistory {
     isTakeaway: json['isTakeaway'] as bool? ?? false,
     detailedItems: List<Map<String, dynamic>>.from(json['detailedItems'] as List? ?? []),
   );
+
+  OrderHistory copyWith({
+    String? orderId,
+    DateTime? orderDate,
+    List<String>? itemNames,
+    int? totalAmount,
+    int? subtotal,
+    int? discountAmount,
+    int? serviceFee,
+    String? status,
+    String? tableNumber,
+    String? paymentMethod,
+    bool? isTakeaway,
+    List<Map<String, dynamic>>? detailedItems,
+  }) {
+    return OrderHistory(
+      orderId: orderId ?? this.orderId,
+      orderDate: orderDate ?? this.orderDate,
+      itemNames: itemNames ?? this.itemNames,
+      totalAmount: totalAmount ?? this.totalAmount,
+      subtotal: subtotal ?? this.subtotal,
+      discountAmount: discountAmount ?? this.discountAmount,
+      serviceFee: serviceFee ?? this.serviceFee,
+      status: status ?? this.status,
+      tableNumber: tableNumber ?? this.tableNumber,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      isTakeaway: isTakeaway ?? this.isTakeaway,
+      detailedItems: detailedItems ?? this.detailedItems,
+    );
+  }
 }
 
 class UserProfile {
